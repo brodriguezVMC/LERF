@@ -4,34 +4,6 @@ namespace Subascorp\Harmony\Math;
 
 class Lerf
 {
-    const CONSIGNMENT_BASE = 10;
-    const PHI_1 = 11;
-    const PHI_2 = 12;
-    const PHI_3 = 13;
-    const PHI_4 = 14;
-    const PHI_5 = 15;
-    const VALUES = [
-        '-6' => [self::PHI_1, self::PHI_1],
-        '-5' => [self::PHI_1, self::PHI_2],
-        '-4' => [self::PHI_1, self::PHI_3],
-        '-3' => [self::PHI_1],
-        '-2' => [self::PHI_2],
-        '-1' => [self::PHI_3],
-        '0' => [],
-        '1' => [self::PHI_1, self::PHI_3],
-        '2' => [self::PHI_1, self::PHI_4],
-        '3' => [self::PHI_1],
-        '4' => [self::PHI_1, self::PHI_4],
-        '5' => [self::PHI_1, self::PHI_3],
-        '6' => [self::PHI_2, self::PHI_5],
-        '7' => [self::PHI_3],
-        '8' => [self::PHI_4],
-        '9' => [self::PHI_5],
-        '10' => []
-    ];
-    const ONLY_USD = [9];
-    const ONLY_SUB = [4, 5, 6];
-
     public static function value()
     {
         return (1+sqrt(5))/2;
@@ -42,36 +14,51 @@ class Lerf
         return $expectation/pow(self::value(), $iterations);
     }
 
-    public function consignmentCalculation($userLevel, $basePrice)
+    /*
+     * Calcula los montos de consignación para el nivel de usuario
+     * y la consignación base ingresada, si la consignación base es
+     * negativa, se tomará el valor absoluto de la misma.
+     */
+    public function consignmentCalculation($userLevel, $baseConsignment): array
     {
-        $consignmentBase = $userLevel <= 0 ? ceil(self::decompose($basePrice, self::CONSIGNMENT_BASE)) : null;
-        
-        $calculatePhi = $this->calculatePhi($basePrice, $userLevel);
-        $consignmentVMC =  $consignmentBase + $calculatePhi;
-        $consignmentUSD = $this->consignmentUSD($consignmentVMC, $userLevel);
-        return [
-            'subascoin' => !in_array(9, self::ONLY_USD) ? $consignmentVMC : null,
-            'saldo' => $consignmentUSD
+        $baseConsignment = abs($baseConsignment);
+        $consignmentDecomposed = [
+            1 => self::decompose($baseConsignment, 1),
+            2 => self::decompose($baseConsignment, 2),
+            3 => self::decompose($baseConsignment, 3),
+            4 => self::decompose($baseConsignment, 4),
+            5 => self::decompose($baseConsignment, 5),
         ];
-    }
 
-    public function calculatePhi(int $basePrice, String $userLevel): int
-    {
-        $result = 0;
-        foreach (self::VALUES[$userLevel] as $key => $value) {
-            if (in_array($userLevel, self::ONLY_SUB) and $key > 0) {
-                $result -= ceil(self::decompose($basePrice, $value));
-            } else {
-                $result += ceil(self::decompose($basePrice, $value));
-            }
+        $levelConsignment = [
+            '-6' => $baseConsignment + $consignmentDecomposed[1] * 2,
+            '-5' => $baseConsignment + $consignmentDecomposed[1] + $consignmentDecomposed[2],
+            '-4' => $baseConsignment + $consignmentDecomposed[1] + $consignmentDecomposed[3],
+            '-3' => $baseConsignment + $consignmentDecomposed[1],
+            '-2' => $baseConsignment + $consignmentDecomposed[2],
+            '-1' => $baseConsignment + $consignmentDecomposed[3],
+            '0' => $baseConsignment,
+            '1' => $consignmentDecomposed[1] + $consignmentDecomposed[3],
+            '2' => $consignmentDecomposed[1] + $consignmentDecomposed[4],
+            '3' => $consignmentDecomposed[1],
+            '4' => $consignmentDecomposed[1] - $consignmentDecomposed[4],
+            '5' => $consignmentDecomposed[1] - $consignmentDecomposed[3],
+            '6' => $consignmentDecomposed[2] - $consignmentDecomposed[5],
+            '7' => $consignmentDecomposed[3],
+            '8' => $consignmentDecomposed[4],
+            '9' => $consignmentDecomposed[5],
+            '10' => 0
+        ];
+
+        try {
+            return [
+                'cash' => $userLevel < 0 ? null : ceil($levelConsignment[$userLevel] * 2),
+                'coin' => ceil($levelConsignment[$userLevel] <= 10 ? 0 : $levelConsignment[$userLevel])
+            ];
+        } catch (\Exception $e) {
+            // error de nivel inexistente
         }
-        return $result;
-    }
-
-    public function consignmentUSD(int $amount, int $userLevel):? int
-    {
-        return $userLevel >= 0 ? $amount * 2 : null;
     }
 }
 
-print_r((new Lerf())->consignmentCalculation(9, 12000));
+print_r((new Lerf())->consignmentCalculation(-7, 98));
